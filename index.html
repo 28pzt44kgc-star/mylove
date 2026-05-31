@@ -1,0 +1,731 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>致我的小汽车：海岛降落，爱有双重魔力</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 字体图标 (用于播放器等图标) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: radial-gradient(circle at center, #0d1b2a 0%, #010510 100%);
+            overflow-x: hidden;
+        }
+        .font-love {
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+        /* 星空背景 Canvas */
+        #starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+        /* 霓虹发光文字 */
+        .neon-text {
+            text-shadow: 0 0 5px rgba(244, 63, 94, 0.6), 0 0 15px rgba(244, 63, 94, 0.4), 0 0 30px rgba(244, 63, 94, 0.2);
+        }
+        .neon-blue {
+            text-shadow: 0 0 5px rgba(56, 189, 248, 0.6), 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+        /* 呼吸效果 */
+        @keyframes pulse-slow {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.03); opacity: 1; filter: drop-shadow(0 0 15px rgba(244, 63, 94, 0.6)); }
+        }
+        .pulse-heart {
+            animation: pulse-slow 2s infinite ease-in-out;
+        }
+        /* 空投箱 3D 旋转与浮动 */
+        @keyframes float-box {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(2deg); }
+        }
+        .airdrop-box {
+            animation: float-box 4s infinite ease-in-out;
+            perspective: 1000px;
+        }
+        /* 轨迹连线动画 */
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -40;
+            }
+        }
+        .heartbeat-line {
+            stroke-dasharray: 8, 4;
+            animation: dash 2s linear infinite;
+        }
+        /* 烟花 Canvas */
+        #fireworks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 40;
+            pointer-events: none;
+            display: none;
+        }
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(244, 63, 94, 0.4);
+            border-radius: 3px;
+        }
+        /* 唯美花瓣雨 */
+        .petal {
+            position: absolute;
+            background: radial-gradient(circle, #ffb7c5 0%, #ff8da1 100%);
+            border-radius: 150% 0 150% 150%;
+            opacity: 0.8;
+            pointer-events: none;
+            z-index: 25;
+            animation: fadeout linear infinite;
+        }
+        @keyframes fadeout {
+            to {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen flex flex-col justify-between relative">
+
+    <!-- 背景 Canvas 元素 -->
+    <canvas id="starfield"></canvas>
+    <canvas id="fireworks"></canvas>
+    <div id="petals-container" class="fixed inset-0 pointer-events-none z-20 overflow-hidden"></div>
+
+    <!-- 顶端：音乐播放器 + 浪漫标题 -->
+    <header class="relative z-10 w-full px-6 py-4 flex flex-wrap justify-between items-center bg-slate-900/40 backdrop-blur-md border-b border-white/10">
+        <div class="flex items-center space-x-3">
+            <div class="bg-rose-500/20 p-2 rounded-full border border-rose-500/30">
+                <i class="fa-solid fa-gamepad text-rose-400 text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold tracking-wider text-rose-300">PUBG MOBILE · 海岛情缘</h1>
+                <p class="text-xs text-slate-400">信号枪已发射，空投正在降落...</p>
+            </div>
+        </div>
+
+        <!-- 极简 BY2 歌词同步播放器 -->
+        <div class="flex items-center space-x-4 bg-black/40 px-4 py-2 rounded-full border border-white/10 max-w-sm mt-2 sm:mt-0">
+            <button id="playBtn" class="w-8 h-8 rounded-full bg-rose-500 hover:bg-rose-600 flex items-center justify-center transition-all duration-300 transform active:scale-95 shadow-lg shadow-rose-500/30">
+                <i id="playIcon" class="fa-solid fa-play text-xs text-white ml-0.5"></i>
+            </button>
+            <div class="text-xs w-48 overflow-hidden">
+                <div class="font-semibold text-rose-300 truncate">BY2 - 爱有双重魔力</div>
+                <div id="lyricBox" class="text-[10px] text-slate-300 truncate mt-0.5">点击播放，开启海岛BGM ♪</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容 -->
+    <main class="relative z-10 flex-grow flex flex-col items-center justify-center px-4 py-8">
+        
+        <!-- 核心故事面板 (宿命连线) -->
+        <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-5 gap-6 items-center mb-12">
+            
+            <!-- 左侧：男主角 (张家麒) -->
+            <div class="md:col-span-2 bg-gradient-to-br from-slate-900/80 to-blue-950/40 border border-blue-500/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md relative overflow-hidden group hover:border-blue-400/60 transition-all duration-500">
+                <div class="absolute -top-10 -left-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl"></div>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="px-3 py-1 bg-blue-500/20 border border-blue-500/40 rounded-full text-xs text-blue-300 font-semibold tracking-wide">北大医学技术大一</span>
+                    <span class="text-xs text-slate-400"><i class="fa-solid fa-location-dot mr-1"></i>江苏·无锡</span>
+                </div>
+                <h2 class="text-2xl font-bold mb-2 tracking-wide text-blue-200">张家麒</h2>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    在未名湖畔眺望，在医学的殿堂探索。<br>
+                    但我发现，心电图上最完美的起伏，是你微笑时的弧度。
+                </p>
+                <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>游戏ID: 浪漫狙击手</span>
+                    <span class="text-blue-300">#博雅塔下等你</span>
+                </div>
+            </div>
+
+            <!-- 中间：相遇的海岛地图 + 连线 -->
+            <div class="md:col-span-1 flex flex-col items-center justify-center py-4 relative">
+                <!-- SVG 宿命红线 -->
+                <svg class="hidden md:block absolute w-full h-24 pointer-events-none" style="top:50%; transform:translateY(-50%); z-index:-1;">
+                    <path d="M 0,50 Q 50,20 100,50" fill="none" stroke="url(#loveGradient)" stroke-width="3" class="heartbeat-line"/>
+                    <defs>
+                        <linearGradient id="loveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#3b82f6"/>
+                            <stop offset="50%" stop-color="#ec4899"/>
+                            <stop offset="100%" stop-color="#f43f5e"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                
+                <!-- 连线中心的海岛徽章 -->
+                <div class="bg-rose-500/20 border border-rose-500/40 p-4 rounded-full pulse-heart cursor-pointer shadow-lg shadow-rose-500/10 relative" id="heartCore">
+                    <i class="fa-solid fa-heart text-3xl text-rose-500"></i>
+                    <span class="absolute -bottom-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs text-rose-300 font-bold bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/20">海岛地图相识 📍</span>
+                </div>
+            </div>
+
+            <!-- 右侧：女主角 (小汽车) -->
+            <div class="md:col-span-2 bg-gradient-to-br from-slate-900/80 to-rose-950/40 border border-rose-500/30 rounded-2xl p-6 shadow-2xl backdrop-blur-md relative overflow-hidden group hover:border-rose-400/60 transition-all duration-500">
+                <div class="absolute -top-10 -right-10 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl"></div>
+                <div class="flex items-center justify-between mb-4">
+                    <span class="px-3 py-1 bg-rose-500/20 border border-rose-500/40 rounded-full text-xs text-rose-300 font-semibold tracking-wide">南医大康达护理·毕业季</span>
+                    <span class="text-xs text-slate-400"><i class="fa-solid fa-location-dot mr-1"></i>江苏·连云港</span>
+                </div>
+                <h2 class="text-2xl font-bold mb-2 tracking-wide text-rose-200">小汽车 👧🏻</h2>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    用温柔抚平伤痛，在毕业季迎接未来的曙光。<br>
+                    海岛的吉普车装不下你所有的可爱，我想做你一辈子的专属副驾驶。
+                </p>
+                <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>游戏ID: 盒子精本精</span>
+                    <span class="text-rose-300">#毕业快乐🎉</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 空投箱交互区域 -->
+        <div class="flex flex-col items-center justify-center my-6 z-30">
+            <!-- 3D 效果空投箱 -->
+            <div class="airdrop-box w-36 h-36 relative cursor-pointer" id="airdropBox" onclick="openAirdrop()">
+                <!-- 空投降落伞 -->
+                <div class="absolute -top-16 left-1/2 transform -translate-x-1/2 w-28 h-16 pointer-events-none transition-all duration-700" id="parachute">
+                    <svg viewBox="0 0 100 60" class="w-full h-full drop-shadow-[0_4px_10px_rgba(244,63,94,0.3)]">
+                        <!-- 伞盖 -->
+                        <path d="M 10,40 Q 50,0 90,40 Z" fill="#f43f5e" opacity="0.9" />
+                        <!-- 伞绳 -->
+                        <line x1="10" y1="40" x2="50" y2="60" stroke="#fff" stroke-width="0.8" />
+                        <line x1="30" y1="40" x2="50" y2="60" stroke="#fff" stroke-width="0.8" />
+                        <line x1="70" y1="40" x2="50" y2="60" stroke="#fff" stroke-width="0.8" />
+                        <line x1="90" y1="40" x2="50" y2="60" stroke="#fff" stroke-width="0.8" />
+                    </svg>
+                </div>
+                <!-- 箱体（红蓝经典配色空投箱） -->
+                <div class="w-full h-full relative transform-gpu hover:scale-105 transition-all duration-300">
+                    <!-- 上盖（蓝色防水布） -->
+                    <div class="absolute top-0 left-0 right-0 h-1/3 bg-gradient-to-r from-blue-600 to-blue-800 rounded-t-lg border-b-4 border-slate-900 flex justify-around items-end px-1 shadow-lg">
+                        <div class="w-2 h-4 bg-blue-900 rounded-t"></div>
+                        <div class="w-2 h-4 bg-blue-900 rounded-t"></div>
+                        <div class="w-2 h-4 bg-blue-900 rounded-t"></div>
+                    </div>
+                    <!-- 下箱体（红色金属） -->
+                    <div class="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-r from-red-600 to-red-800 rounded-b-lg flex flex-col justify-between p-2">
+                        <div class="h-2 w-full bg-slate-900/40 rounded-full flex justify-center items-center">
+                            <span class="text-[8px] tracking-widest text-white/70">SUPER AIRDROP</span>
+                        </div>
+                        <div class="flex justify-between items-end">
+                            <div class="w-4 h-4 rounded-full bg-yellow-400 animate-ping absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 opacity-20"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-400 absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 shadow-lg shadow-yellow-400"></div>
+                        </div>
+                        <!-- 黄色绑带 -->
+                        <div class="flex justify-between px-4">
+                            <div class="w-2 h-10 bg-yellow-500"></div>
+                            <div class="w-2 h-10 bg-yellow-500"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 红色求救烟雾特效 -->
+                <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-rose-500/50 rounded-full blur-xl animate-ping"></div>
+                <div class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-rose-500/20 rounded-full blur-md"></div>
+            </div>
+            
+            <p id="clickTip" class="text-xs text-rose-300 font-bold tracking-widest mt-4 animate-bounce cursor-pointer" onclick="openAirdrop()">
+                👇 点击开启海岛“三级告白空投”
+            </p>
+        </div>
+
+        <!-- 弹出式超级表白情书 (点击空投箱后展开) -->
+        <div id="loveLetter" class="hidden w-full max-w-2xl bg-slate-950/90 border-2 border-rose-500/50 rounded-3xl p-6 sm:p-8 shadow-[0_0_50px_rgba(244,63,94,0.3)] backdrop-blur-lg transform transition-all duration-700 scale-90 opacity-0 relative z-40 my-8">
+            <!-- 装饰性光晕 -->
+            <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-rose-500 text-white font-bold px-6 py-2 rounded-full shadow-lg shadow-rose-500/40 text-sm tracking-widest z-10 flex items-center gap-2">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> 满级空投装备已装配
+            </div>
+
+            <div class="text-center mb-6 pt-4">
+                <h3 class="text-3xl font-love text-rose-400 neon-text">致：我最爱的小汽车 🚗💨</h3>
+                <p class="text-xs text-slate-400 mt-2">“海岛很大，能遇到你，是我这局游戏最完美的终点。”</p>
+            </div>
+
+            <!-- 情书正文 (带打字机特效) -->
+            <div class="space-y-4 text-sm sm:text-base text-rose-100 leading-relaxed font-light text-justify px-2 max-h-80 overflow-y-auto pr-3">
+                <p class="indent-8">
+                    小汽车，见字如面。我是无锡的家麒，也是在北大未名湖畔默默想念你的那个男孩。
+                </p>
+                <p class="indent-8">
+                    还记得我们在<span class="text-yellow-400 font-semibold">《和平精英》海岛地图</span>相识的那一局吗？从飞机起飞到落地，我从未想过，一幅虚拟的战术地图，竟会成为我人生中最美风景的起点。听见你的声音那一刻起，我手里的M416和八倍镜便有了真正要守护的意义。
+                </p>
+                <p class="indent-8">
+                    我是学医学技术的，懂得人体最精密的构造，也见过最复杂的仪器。但我必须承认，世上没有任何一门科学能解释你对我的吸引力。你来自连云港，在南京医科大学康达学院学习护理，今年就要毕业了，恭喜我的小汽车顺利通关大学这一局！以后，你负责守护病人的健康，而我，想用一辈子的温柔与专一，来守护你。
+                </p>
+                <p class="indent-8">
+                    异地或许很远，但在我的心率图上，你每一次出现都是最高峰。就像BY2歌里唱的那样，“爱有双重魔力”，我的世界，早已被你完全吸引。
+                </p>
+                <p class="indent-8">
+                    小汽车，我可以申请做你一生的专属急救包，和你一起跑毒，一起看海岛的日落，一辈子都不下车吗？
+                </p>
+            </div>
+
+            <!-- 表白按钮组 -->
+            <div class="mt-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+                <button id="btnYes" onclick="acceptLove()" class="w-full sm:w-auto px-10 py-3 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-bold rounded-full shadow-lg shadow-rose-500/30 transform active:scale-95 transition-all duration-300 text-center tracking-wider">
+                    💖 我愿意，我们在一起吧！
+                </button>
+                <button id="btnNo" onmouseover="dodgeBtn(this)" onclick="dodgeBtn(this)" class="w-full sm:w-auto px-8 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-full border border-slate-600 transition-all duration-300 text-center text-sm">
+                    考虑一下 🤭
+                </button>
+            </div>
+        </div>
+
+        <!-- 接受告白后的惊喜大画幅 -->
+        <div id="successPanel" class="hidden w-full max-w-xl text-center p-8 bg-slate-950/90 border border-emerald-500/30 rounded-3xl shadow-[0_0_60px_rgba(16,185,129,0.3)] backdrop-blur-lg transform transition-all duration-500 scale-90 opacity-0 relative z-50 my-8">
+            <div class="w-20 h-20 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fa-solid fa-heart-circle-check text-4xl text-emerald-400 animate-pulse"></i>
+            </div>
+            <h3 class="text-4xl font-love text-emerald-400 mb-4">🎉 锁定成功！大吉大利！</h3>
+            <p class="text-base text-emerald-200 mb-6 leading-relaxed">
+                恭喜家麒 ❤️ 小汽车 牵手成功！<br>
+                我们已成功搭乘“爱之吉普车”，终点站：一辈子的幸福。
+            </p>
+            <div class="bg-emerald-950/40 p-4 rounded-xl border border-emerald-500/20 text-xs text-slate-300 space-y-2">
+                <div>🗺️ 航线：无锡 ✈️ 连云港（相约海岛，终抵北大）</div>
+                <div>🎵 此时此刻，歌里的双重魔力正在无限生效...</div>
+            </div>
+            <button onclick="resetAirdrop()" class="mt-6 text-xs text-rose-400 underline hover:text-rose-300 transition">重新开启空投 🎁</button>
+        </div>
+
+    </main>
+
+    <!-- 底端：恋爱宣言 -->
+    <footer class="relative z-10 w-full text-center py-6 bg-slate-950/60 backdrop-blur-sm border-t border-white/5 text-xs text-slate-500">
+        <p class="tracking-widest">Designed with ❤️ for 小汽车 by 张家麒 | 2026 北京大学</p>
+        <p class="text-[10px] mt-1 text-slate-600">本页面由代码精心渲染，永不褪色的数字浪漫</p>
+    </footer>
+
+    <!-- 交互脚本 -->
+    <script>
+        // ==========================================
+        // 1. 浪漫星空背景 Canvas 渲染
+        // ==========================================
+        const starCanvas = document.getElementById('starfield');
+        const starCtx = starCanvas.getContext('2d');
+        let stars = [];
+        const maxStars = 120;
+
+        function resizeCanvas() {
+            starCanvas.width = window.innerWidth;
+            starCanvas.height = window.innerHeight;
+            initStars();
+        }
+
+        class Star {
+            constructor() {
+                this.x = Math.random() * starCanvas.width;
+                this.y = Math.random() * starCanvas.height;
+                this.size = Math.random() * 2;
+                this.speedX = (Math.random() - 0.5) * 0.2;
+                this.speedY = (Math.random() - 0.5) * 0.2;
+                this.brightness = Math.random();
+                this.fadeSpeed = 0.005 + Math.random() * 0.01;
+                this.color = Math.random() > 0.3 ? '#ffffff' : (Math.random() > 0.5 ? '#f43f5e' : '#38bdf8');
+            }
+
+            draw() {
+                starCtx.beginPath();
+                starCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                starCtx.fillStyle = this.color;
+                starCtx.globalAlpha = this.brightness;
+                starCtx.fill();
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                // 边界折返
+                if (this.x < 0 || this.x > starCanvas.width) this.speedX *= -1;
+                if (this.y < 0 || this.y > starCanvas.height) this.speedY *= -1;
+
+                // 闪烁
+                this.brightness += this.fadeSpeed;
+                if (this.brightness <= 0.1 || this.brightness >= 0.9) {
+                    this.fadeSpeed *= -1;
+                }
+            }
+        }
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < maxStars; i++) {
+                stars.push(new Star());
+            }
+        }
+
+        // 流星效果
+        let shootingStar = null;
+        function triggerShootingStar() {
+            shootingStar = {
+                x: Math.random() * starCanvas.width,
+                y: 0,
+                length: 80 + Math.random() * 100,
+                speedX: 4 + Math.random() * 4,
+                speedY: 4 + Math.random() * 4,
+                alpha: 1
+            };
+            setTimeout(triggerShootingStar, 8000 + Math.random() * 10000);
+        }
+
+        function drawShootingStar() {
+            if (!shootingStar) return;
+            starCtx.beginPath();
+            const grad = starCtx.createLinearGradient(
+                shootingStar.x, shootingStar.y, 
+                shootingStar.x - shootingStar.speedX * 10, shootingStar.y - shootingStar.speedY * 10
+            );
+            grad.addColorStop(0, `rgba(255, 183, 197, ${shootingStar.alpha})`);
+            grad.addColorStop(1, 'rgba(255, 183, 197, 0)');
+            starCtx.strokeStyle = grad;
+            starCtx.lineWidth = 2;
+            starCtx.moveTo(shootingStar.x, shootingStar.y);
+            starCtx.lineTo(shootingStar.x - shootingStar.speedX * 5, shootingStar.y - shootingStar.speedY * 5);
+            starCtx.stroke();
+
+            shootingStar.x += shootingStar.speedX;
+            shootingStar.y += shootingStar.speedY;
+            shootingStar.alpha -= 0.015;
+
+            if (shootingStar.alpha <= 0 || shootingStar.x > starCanvas.width || shootingStar.y > starCanvas.height) {
+                shootingStar = null;
+            }
+        }
+
+        function animateStars() {
+            starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+            drawShootingStar();
+            requestAnimationFrame(animateStars);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        animateStars();
+        setTimeout(triggerShootingStar, 4000);
+
+
+        // ==========================================
+        // 2. 音频控制与歌词同步
+        // ==========================================
+        // 初始化音频（使用了爱有双重魔力经典的纯音乐/翻唱优质外链，具有高连通性）
+        const audio = new Audio();
+        audio.src = 'https://music.163.com/song/media/outer/url?id=1901371647.mp3'; // 默认：高品质乐流
+        audio.loop = true;
+        
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const lyricBox = document.getElementById('lyricBox');
+
+        // 歌词时间轴 (BY2 爱有双重魔力 节选核心歌词)
+        const lyrics = [
+            { time: 0, text: "🎵 爱有双重魔力 - BY2 🎵" },
+            { time: 3, text: "准备好迎接我的爱了吗？" },
+            { time: 8, text: "两颗心都靠拢 恋爱双重魔力" },
+            { time: 13, text: "你就是我命中注定的伴侣" },
+            { time: 18, text: "怎么看你都是那么迷人" },
+            { time: 22, text: "海岛的风，吹动了我的心弦" },
+            { time: 26, text: "不知不觉已被你完全吸引" },
+            { time: 31, text: "爱有双重魔力，让我死心塌地" },
+            { time: 36, text: "张家麒 ❤️ 小汽车" },
+            { time: 42, text: "想做你一辈子的专属副驾驶" },
+            { time: 48, text: "牵着手，走过每一个圈..." }
+        ];
+
+        let playAttempted = false;
+
+        function togglePlay() {
+            if (audio.paused) {
+                audio.play().then(() => {
+                    playIcon.className = 'fa-solid fa-pause text-xs text-white';
+                    playBtn.classList.add('animate-pulse');
+                }).catch(err => {
+                    console.log("播放被浏览器拦截，请手动点击", err);
+                });
+            } else {
+                audio.pause();
+                playIcon.className = 'fa-solid fa-play text-xs text-white ml-0.5';
+                playBtn.classList.remove('animate-pulse');
+            }
+        }
+
+        playBtn.addEventListener('click', togglePlay);
+
+        // 歌词同步更新
+        audio.addEventListener('timeupdate', () => {
+            const currentTime = audio.currentTime;
+            let activeLyric = lyrics[0].text;
+            for (let i = 0; i < lyrics.length; i++) {
+                if (currentTime >= lyrics[i].time) {
+                    activeLyric = lyrics[i].text;
+                }
+            }
+            lyricBox.textContent = activeLyric;
+        });
+
+
+        // ==========================================
+        // 3. 互动交互与惊喜特效
+        // ==========================================
+        
+        // 开启空投箱
+        function openAirdrop() {
+            const airdrop = document.getElementById('airdropBox');
+            const parachute = document.getElementById('parachute');
+            const clickTip = document.getElementById('clickTip');
+            const loveLetter = document.getElementById('loveLetter');
+
+            // 触发开箱动画
+            parachute.style.transform = 'translateY(-100px) scale(0)';
+            parachute.style.opacity = '0';
+            clickTip.style.display = 'none';
+
+            // 自动播放音乐（如果是用户交互触发的开箱，通常可以成功播放）
+            if (audio.paused) {
+                togglePlay();
+            }
+
+            // 飘散大量心形花瓣
+            for (let i = 0; i < 40; i++) {
+                createPetal();
+            }
+
+            // 展示情书
+            setTimeout(() => {
+                loveLetter.classList.remove('hidden');
+                // 强制重绘
+                loveLetter.offsetHeight;
+                loveLetter.style.opacity = '1';
+                loveLetter.style.transform = 'scale(1)';
+                loveLetter.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 600);
+        }
+
+        // 飘落粉色花瓣/桃心
+        function createPetal() {
+            const container = document.getElementById('petals-container');
+            const petal = document.createElement('div');
+            petal.classList.add('petal');
+            
+            // 随机尺寸、位置与旋转
+            const size = Math.random() * 12 + 8;
+            petal.style.width = `${size}px`;
+            petal.style.height = `${size}px`;
+            petal.style.left = `${Math.random() * 100}vw`;
+            petal.style.top = `-20px`;
+
+            // 随机飘落持续时间
+            const duration = Math.random() * 3 + 3;
+            petal.style.animationDuration = `${duration}s`;
+
+            container.appendChild(petal);
+
+            // 播放完毕移出
+            setTimeout(() => {
+                petal.remove();
+            }, duration * 1000);
+        }
+
+        // 心形按钮调皮闪避
+        function dodgeBtn(btn) {
+            // 获取安全的可移动范围
+            const card = document.getElementById('loveLetter');
+            const cardRect = card.getBoundingClientRect();
+            
+            const btnWidth = btn.offsetWidth;
+            const btnHeight = btn.offsetHeight;
+
+            // 限制在情书卡片内部随机跑动
+            const maxX = cardRect.width - btnWidth - 30;
+            const maxY = cardRect.height - btnHeight - 30;
+
+            const randomX = Math.max(10, Math.random() * maxX);
+            const randomY = Math.max(10, Math.random() * maxY);
+
+            btn.style.position = 'absolute';
+            btn.style.left = `${randomX}px`;
+            btn.style.top = `${randomY}px`;
+            btn.style.zIndex = '50';
+        }
+
+        // 接受告白
+        function acceptLove() {
+            const loveLetter = document.getElementById('loveLetter');
+            const successPanel = document.getElementById('successPanel');
+            const fireworks = document.getElementById('fireworks');
+
+            // 隐藏情书，展示喜报
+            loveLetter.style.opacity = '0';
+            loveLetter.style.transform = 'scale(0.9)';
+            
+            setTimeout(() => {
+                loveLetter.classList.add('hidden');
+                successPanel.classList.remove('hidden');
+                // 重绘
+                successPanel.offsetHeight;
+                successPanel.style.opacity = '1';
+                successPanel.style.transform = 'scale(1)';
+                successPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 500);
+
+            // 开启烟花盛宴
+            fireworks.style.display = 'block';
+            initFireworks();
+        }
+
+        // 重置空投箱
+        function resetAirdrop() {
+            const parachute = document.getElementById('parachute');
+            const clickTip = document.getElementById('clickTip');
+            const loveLetter = document.getElementById('loveLetter');
+            const successPanel = document.getElementById('successPanel');
+            const fireworks = document.getElementById('fireworks');
+
+            successPanel.style.opacity = '0';
+            successPanel.style.transform = 'scale(0.9)';
+
+            setTimeout(() => {
+                successPanel.classList.add('hidden');
+                fireworks.style.display = 'none';
+                stopFireworksFlag = true;
+
+                parachute.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+                parachute.style.opacity = '1';
+                clickTip.style.display = 'block';
+                
+                // 重置调皮按钮位置
+                const btnNo = document.getElementById('btnNo');
+                btnNo.style.position = 'static';
+            }, 500);
+        }
+
+
+        // ==========================================
+        // 4. 绚丽烟花 Canvas 算法 (告白成功特效)
+        // ==========================================
+        const fwCanvas = document.getElementById('fireworks');
+        const fwCtx = fwCanvas.getContext('2d');
+        let fwParticles = [];
+        let stopFireworksFlag = false;
+
+        function resizeFwCanvas() {
+            fwCanvas.width = window.innerWidth;
+            fwCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeFwCanvas);
+        resizeFwCanvas();
+
+        class FireworkParticle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = Math.random() * 2.5 + 1;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 6 + 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.015 + 0.01;
+                this.gravity = 0.08;
+            }
+
+            draw() {
+                fwCtx.save();
+                fwCtx.globalAlpha = this.alpha;
+                fwCtx.beginPath();
+                fwCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                fwCtx.fillStyle = this.color;
+                fwCtx.shadowBlur = 8;
+                fwCtx.shadowColor = this.color;
+                fwCtx.fill();
+                fwCtx.restore();
+            }
+
+            update() {
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+        }
+
+        function createFirework(x, y) {
+            const colors = ['#f43f5e', '#ec4899', '#38bdf8', '#a855f7', '#10b981', '#fbbf24'];
+            const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+            const pCount = 80;
+            for (let i = 0; i < pCount; i++) {
+                fwParticles.push(new FireworkParticle(x, y, chosenColor));
+            }
+        }
+
+        let lastLaunch = 0;
+        function animateFireworks(timestamp) {
+            if (stopFireworksFlag) return;
+            
+            fwCtx.fillStyle = 'rgba(1, 5, 16, 0.25)'; // 拖尾尾迹
+            fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
+
+            // 自动定时发射
+            if (timestamp - lastLaunch > 800) {
+                const lx = Math.random() * fwCanvas.width * 0.8 + fwCanvas.width * 0.1;
+                const ly = Math.random() * fwCanvas.height * 0.5 + fwCanvas.height * 0.1;
+                createFirework(lx, ly);
+                lastLaunch = timestamp;
+            }
+
+            for (let i = fwParticles.length - 1; i >= 0; i--) {
+                const p = fwParticles[i];
+                p.update();
+                p.draw();
+                if (p.alpha <= 0) {
+                    fwParticles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animateFireworks);
+        }
+
+        function initFireworks() {
+            stopFireworksFlag = false;
+            fwParticles = [];
+            requestAnimationFrame(animateFireworks);
+        }
+
+        // 双击海岛图标也能触发小爱心
+        document.getElementById('heartCore').addEventListener('click', () => {
+            for (let i = 0; i < 8; i++) {
+                createPetal();
+            }
+        });
+
+    </script>
+</body>
+</html>
+
+```
